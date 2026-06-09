@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "LocalService",
+    "slug": "localservice-connect",
+    "version": "1.0.0",
+    "scheme": "localservice",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#f97316"
+      },
+      "package": "com.royal360.localservice",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.royal360.localservice",
+      "supportsTablet": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-location",
+      ["expo-image-picker", { "photosPermission": "Allow LocalService to access your photos." }],
+      ["expo-notifications", { "icon": "./assets/notification-icon.png", "color": "#f97316" }]
+    ],
+    "extra": {
+      "eas": { "projectId": "your-eas-project-id" }
+    }
+  }
+}
