@@ -1,12 +1,14 @@
 import { useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
-import { fetchWorkerProfile } from '../../store/slices/workersSlice'
+import { fetchWorkerProfile, toggleAvailability } from '../../store/slices/workersSlice'
 import { fetchWorkerJobs } from '../../store/slices/bookingsSlice'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
-import { toggleAvailability } from '../../store/slices/workersSlice'
-import { Briefcase, Star, TrendingUp, Crown, ToggleLeft, ToggleRight, ChevronRight, AlertCircle } from 'lucide-react'
+import {
+  Briefcase, Star, TrendingUp, Crown,
+  ToggleLeft, ToggleRight, ChevronRight, AlertCircle, RefreshCw
+} from 'lucide-react'
 
 export default function WorkerDashboard() {
   const dispatch = useDispatch()
@@ -14,16 +16,21 @@ export default function WorkerDashboard() {
   const { availableJobs } = useSelector(s => s.bookings)
   const user = useSelector(s => s.auth.user)
 
-  useEffect(() => {
+  const loadAll = () => {
     dispatch(fetchWorkerProfile())
     dispatch(fetchWorkerJobs('available'))
+  }
+
+  // Always fetch fresh on mount
+  useEffect(() => {
+    loadAll()
   }, [])
 
   const handleToggle = async () => {
     try {
       await api.post('/workers/profile/toggle-availability/')
       dispatch(toggleAvailability())
-      toast.success(profile?.is_available ? 'You are now offline' : 'You are now online')
+      toast.success(profile?.is_available ? 'You are now offline' : 'You are now online!')
     } catch {
       toast.error('Failed to update status')
     }
@@ -35,7 +42,7 @@ export default function WorkerDashboard() {
     </div>
   )
 
-  const isPending = profile.verification_status === 'pending'
+  const isPending  = profile.verification_status === 'pending'
   const isRejected = profile.verification_status === 'rejected'
 
   return (
@@ -47,20 +54,29 @@ export default function WorkerDashboard() {
             Hi, {user?.name?.split(' ')[0]} 👋
           </h1>
           <p className="text-surface-muted text-sm mt-1">
-            {profile.verification_status === 'verified' ? '✅ Verified Worker' : `⚠️ Verification: ${profile.verification_status}`}
+            {profile.verification_status === 'verified'
+              ? '✅ Verified Worker'
+              : `⚠️ Verification: ${profile.verification_status}`}
           </p>
         </div>
-        {/* Online toggle */}
-        <button onClick={handleToggle} className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-medium text-sm transition-all ${
-          profile.is_available
-            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-            : 'bg-surface-card border-surface-border text-surface-muted'
-        }`}>
-          {profile.is_available
-            ? <><ToggleRight size={18} /> Online</>
-            : <><ToggleLeft size={18} /> Offline</>
-          }
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={loadAll} className="btn-secondary py-2 px-3" title="Refresh">
+            <RefreshCw size={15} />
+          </button>
+          <button
+            onClick={handleToggle}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-medium text-sm transition-all ${
+              profile.is_available
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                : 'bg-surface-card border-surface-border text-surface-muted'
+            }`}
+          >
+            {profile.is_available
+              ? <><ToggleRight size={18} /> Online</>
+              : <><ToggleLeft size={18} /> Offline</>
+            }
+          </button>
+        </div>
       </div>
 
       {/* Verification warning */}
@@ -75,7 +91,7 @@ export default function WorkerDashboard() {
               <p className="text-surface-muted text-xs mt-1">
                 {isRejected
                   ? `Reason: ${profile.verification_note || 'Contact support'}`
-                  : 'Your ID is being reviewed. You can still complete your profile.'}
+                  : 'Your ID is being reviewed.'}
               </p>
               {isPending && (
                 <Link to="/worker/profile" className="text-brand-400 text-xs font-medium mt-2 inline-block">
@@ -90,10 +106,10 @@ export default function WorkerDashboard() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { icon: <Briefcase size={18} />, label: 'Total Jobs', value: profile.total_jobs },
-          { icon: <Star size={18} />, label: 'Rating', value: `${profile.avg_rating || 0} ★` },
-          { icon: <TrendingUp size={18} />, label: 'Reviews', value: profile.rating_count },
-          { icon: <Crown size={18} />, label: 'Plan', value: profile.subscription_plan?.toUpperCase() },
+          { icon: <Briefcase size={18} />, label: 'Total Jobs',  value: profile.total_jobs },
+          { icon: <Star size={18} />,      label: 'Rating',      value: `${profile.avg_rating || 0} ★` },
+          { icon: <TrendingUp size={18} />,label: 'Reviews',     value: profile.rating_count },
+          { icon: <Crown size={18} />,     label: 'Plan',        value: profile.subscription_plan?.toUpperCase() },
         ].map(stat => (
           <div key={stat.label} className="card flex flex-col items-center text-center py-4">
             <div className="text-brand-400 mb-1">{stat.icon}</div>
@@ -127,9 +143,9 @@ export default function WorkerDashboard() {
                 <div className="flex-1">
                   <p className="font-semibold text-white">{job.service?.name}</p>
                   <p className="text-sm text-surface-muted truncate">{job.problem_description}</p>
-                  <p className="text-xs text-surface-muted mt-1">📍 {job.address?.slice(0, 60)}…</p>
+                  <p className="text-xs text-surface-muted mt-1">📍 {job.address?.slice(0, 60)}</p>
                 </div>
-                <Link to={`/worker/jobs`} className="btn-primary py-2 px-4 text-sm flex-shrink-0">
+                <Link to="/worker/jobs" className="btn-primary py-2 px-4 text-sm flex-shrink-0">
                   View
                 </Link>
               </div>

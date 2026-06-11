@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { fetchMyBookings } from '../../store/slices/bookingsSlice'
-import { CalendarDays, ChevronRight, Plus } from 'lucide-react'
+import { CalendarDays, ChevronRight, Plus, RefreshCw } from 'lucide-react'
 import { format } from 'date-fns'
 
 const STATUS_BADGE = {
@@ -27,6 +27,7 @@ export default function MyBookingsPage() {
   const dispatch = useDispatch()
   const { myBookings, isLoading } = useSelector(s => s.bookings)
 
+  // Always fetch fresh data when this page is visited
   useEffect(() => {
     dispatch(fetchMyBookings())
   }, [])
@@ -38,12 +39,21 @@ export default function MyBookingsPage() {
           <h1 className="font-display text-2xl font-bold text-white">My Bookings</h1>
           <p className="text-surface-muted text-sm mt-1">{myBookings.length} total bookings</p>
         </div>
-        <Link to="/" className="btn-primary py-2.5 px-4 flex items-center gap-2 text-sm">
-          <Plus size={15} /> New Booking
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => dispatch(fetchMyBookings())}
+            className="btn-secondary py-2.5 px-3"
+            title="Refresh"
+          >
+            <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
+          </button>
+          <Link to="/" className="btn-primary py-2.5 px-4 flex items-center gap-2 text-sm">
+            <Plus size={15} /> New Booking
+          </Link>
+        </div>
       </div>
 
-      {isLoading ? (
+      {isLoading && myBookings.length === 0 ? (
         <div className="space-y-3">
           {[...Array(3)].map((_, i) => <div key={i} className="card h-24 animate-pulse" />)}
         </div>
@@ -68,8 +78,8 @@ export default function MyBookingsPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-semibold text-white">{booking.service?.name}</p>
-                  <span className={STATUS_BADGE[booking.status]}>
-                    {STATUS_LABEL[booking.status]}
+                  <span className={STATUS_BADGE[booking.status] || 'badge-gray'}>
+                    {STATUS_LABEL[booking.status] || booking.status}
                   </span>
                 </div>
                 <p className="text-sm text-surface-muted truncate mt-0.5">

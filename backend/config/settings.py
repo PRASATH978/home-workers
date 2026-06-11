@@ -1,17 +1,16 @@
 """
 LocalService Connect — Django Settings
 """
-import os
 from pathlib import Path
 from decouple import config, Csv
 from datetime import timedelta
-from decouple import config, Csv
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-me-in-production')
 DEBUG = config('DEBUG', default=True, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*', cast=Csv())
+
 
 DJANGO_APPS = [
     'django.contrib.admin',
@@ -33,8 +32,6 @@ THIRD_PARTY_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
-    'cloudinary',
-    'cloudinary_storage',
     'drf_spectacular',
     'django_celery_beat',
 ]
@@ -83,25 +80,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# ─── Database — SQLite for local dev, PostgreSQL for production ───────────────
+# ─── Database ─────────────────────────────────────────────────────────────────
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
-# Uncomment below and comment out SQLite above for PostgreSQL:
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': config('DB_NAME', default='localservice_db'),
-#         'USER': config('DB_USER', default='postgres'),
-#         'PASSWORD': config('DB_PASSWORD', default='postgres'),
-#         'HOST': config('DB_HOST', default='localhost'),
-#         'PORT': config('DB_PORT', default='5432'),
-#     }
-# }
 
 AUTH_USER_MODEL = 'accounts.User'
 
@@ -117,9 +102,24 @@ TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
 USE_TZ = True
 
+# ─── Static & Media ───────────────────────────────────────────────────────────
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Use local file storage by default — switch to Cloudinary in production
+CLOUDINARY_CLOUD_NAME = config('CLOUDINARY_CLOUD_NAME', default='')
+if CLOUDINARY_CLOUD_NAME:
+    INSTALLED_APPS += ['cloudinary', 'cloudinary_storage']
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': CLOUDINARY_CLOUD_NAME,
+        'API_KEY': config('CLOUDINARY_API_KEY', default=''),
+        'API_SECRET': config('CLOUDINARY_API_SECRET', default=''),
+    }
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+else:
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SITE_ID = 1
@@ -152,21 +152,18 @@ SIMPLE_JWT = {
 }
 
 # ─── CORS ────────────────────────────────────────────────────────────────────
-CORS_ALLOWED_ORIGINS = config(
-    'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:5173,http://localhost:3000',
-    cast=Csv()
-)
+# ─── CORS ────────────────────────────────────────────────────────────────────
+CORS_ALLOW_ALL_ORIGINS = True      # dev only
 CORS_ALLOW_CREDENTIALS = True
-
-# ─── Cloudinary ──────────────────────────────────────────────────────────────
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME', default=''),
-    'API_KEY': config('CLOUDINARY_API_KEY', default=''),
-    'API_SECRET': config('CLOUDINARY_API_SECRET', default=''),
-}
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-MEDIA_URL = '/media/'
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:8081',
+    'http://192.168.1.35:8081',
+    'http://192.168.1.35:19000',
+    'http://192.168.1.35:19006',
+]
+CORS_ALLOW_CREDENTIALS = True
 
 # ─── Twilio ──────────────────────────────────────────────────────────────────
 TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')
@@ -175,8 +172,8 @@ TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER', default='')
 TWILIO_WHATSAPP_NUMBER = config('TWILIO_WHATSAPP_NUMBER', default='whatsapp:+14155238886')
 
 # ─── Razorpay ────────────────────────────────────────────────────────────────
-RAZORPAY_KEY_ID = config('RAZORPAY_KEY_ID', default='')
-RAZORPAY_KEY_SECRET = config('RAZORPAY_KEY_SECRET', default='')
+RAZORPAY_KEY_ID = config('RAZORPAY_KEY_ID', default='rzp_test_SvZG67pX4kckN4')
+RAZORPAY_KEY_SECRET = config('RAZORPAY_KEY_SECRET', default='yYBRszgWhlO5F4C201O4AadH')
 RAZORPAY_COMMISSION_PERCENT = 10
 
 # ─── Google Maps ─────────────────────────────────────────────────────────────
@@ -199,11 +196,9 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
-# ─── django-allauth ──────────────────────────────────────────────────────────
-ACCOUNT_AUTHENTICATION_METHOD = 'username'
-ACCOUNT_EMAIL_REQUIRED = False
-ACCOUNT_USERNAME_REQUIRED = False
-
+# ─── django-allauth v65+ ─────────────────────────────────────────────────────
+ACCOUNT_LOGIN_METHODS = {'username'}
+ACCOUNT_SIGNUP_FIELDS = ['username*', 'password1*', 'password2*']
 # ─── Subscription Plans ──────────────────────────────────────────────────────
 SUBSCRIPTION_PLANS = {
     'basic':    {'price': 0,   'leads_per_month': 5,    'featured': False},
@@ -217,3 +212,8 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'Hyperlocal service marketplace API',
     'VERSION': '1.0.0',
 }
+
+
+# Make sure these are always set
+MEDIA_URL  = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'

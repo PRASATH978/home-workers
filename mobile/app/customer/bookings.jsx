@@ -1,43 +1,62 @@
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native'
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import {
+  View, Text, FlatList, TouchableOpacity,
+  ActivityIndicator, RefreshControl, StyleSheet,
+} from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useDispatch, useSelector } from 'react-redux'
 import { router } from 'expo-router'
 import { fetchMyBookings } from '../../src/store/slices'
 import { format } from 'date-fns'
 
-const STATUS_STYLE = {
-  pending:     { bg: 'bg-brand-500/15',    text: 'text-brand-400' },
-  accepted:    { bg: 'bg-blue-500/15',     text: 'text-blue-400' },
-  in_progress: { bg: 'bg-blue-500/15',     text: 'text-blue-400' },
-  completed:   { bg: 'bg-emerald-500/15',  text: 'text-emerald-400' },
-  cancelled:   { bg: 'bg-red-500/15',      text: 'text-red-400' },
-  rejected:    { bg: 'bg-red-500/15',      text: 'text-red-400' },
-}
-const STATUS_LABEL = {
-  pending:'⏳ Pending', accepted:'✅ Accepted', in_progress:'🔧 In Progress',
-  completed:'✔️ Completed', cancelled:'❌ Cancelled', rejected:'❌ Rejected',
+const STATUS = {
+  pending:     { bg:'#FEF3C7', text:'#92400E', dot:'#F59E0B', label:'⏳ Pending'     },
+  accepted:    { bg:'#DBEAFE', text:'#1E40AF', dot:'#3B82F6', label:'✅ Accepted'    },
+  in_progress: { bg:'#DBEAFE', text:'#1E40AF', dot:'#3B82F6', label:'🔧 In Progress' },
+  completed:   { bg:'#D1FAE5', text:'#065F46', dot:'#10B981', label:'✔️ Completed'   },
+  cancelled:   { bg:'#FEE2E2', text:'#991B1B', dot:'#EF4444', label:'❌ Cancelled'   },
+  rejected:    { bg:'#FEE2E2', text:'#991B1B', dot:'#EF4444', label:'❌ Rejected'    },
 }
 
-function BookingItem({ item }) {
-  const s = STATUS_STYLE[item.status] || STATUS_STYLE.pending
+function BookingCard({ item }) {
+  const s = STATUS[item.status] || STATUS.pending
   return (
     <TouchableOpacity
-      className="bg-surface-card border border-surface-border rounded-2xl p-4 mb-2.5"
-      onPress={() => router.push({ pathname: '/customer/booking-detail', params: { id: item.id } })}
-      activeOpacity={0.7}
+      style={styles.card}
+      onPress={() => router.push({ pathname:'/customer/booking-detail', params:{ id: item.id } })}
+      activeOpacity={0.75}
     >
-      <View className="flex-row items-start gap-3 mb-2.5">
-        <View className="flex-1">
-          <Text className="text-white font-bold text-base">{item.service?.name}</Text>
-          <Text className="text-surface-muted text-sm mt-0.5" numberOfLines={1}>{item.problem_description}</Text>
+      {/* Top color bar */}
+      <LinearGradient colors={['#2563EB','#1D4ED8']} start={{ x:0,y:0 }} end={{ x:1,y:0 }} style={styles.cardBar} />
+
+      <View style={styles.cardBody}>
+        <View style={styles.cardLeft}>
+          <Text style={styles.cardService}>{item.service?.name}</Text>
+          <Text style={styles.cardDesc} numberOfLines={1}>{item.problem_description}</Text>
+          <Text style={styles.cardDate}>📅 {format(new Date(item.created_at), 'dd MMM yyyy, hh:mm a')}</Text>
+
+          {item.status === 'completed' && item.payment_status === 'unpaid' && (
+            <View style={styles.payBadge}>
+              <Text style={styles.payBadgeText}>💳 Tap to Pay</Text>
+            </View>
+          )}
+          {item.payment_status === 'paid' && (
+            <View style={[styles.payBadge, { backgroundColor:'#D1FAE5' }]}>
+              <Text style={[styles.payBadgeText, { color:'#065F46' }]}>✅ Paid</Text>
+            </View>
+          )}
         </View>
-        <View className={`${s.bg} rounded-full px-3 py-1`}>
-          <Text className={`${s.text} text-xs font-semibold`}>{STATUS_LABEL[item.status]}</Text>
+
+        <View style={styles.cardRight}>
+          <View style={[styles.statusBadge, { backgroundColor: s.bg }]}>
+            <View style={[styles.statusDot, { backgroundColor: s.dot }]} />
+            <Text style={[styles.statusText, { color: s.text }]}>{s.label}</Text>
+          </View>
+          {item.final_price && (
+            <Text style={styles.price}>₹{item.final_price}</Text>
+          )}
+          <Text style={styles.arrow}>›</Text>
         </View>
-      </View>
-      <View className="flex-row justify-between items-center">
-        <Text className="text-surface-muted text-xs">📅 {format(new Date(item.created_at), 'dd MMM yyyy, hh:mm a')}</Text>
-        {item.final_price && <Text className="text-emerald-400 font-bold text-sm">₹{item.final_price}</Text>}
       </View>
     </TouchableOpacity>
   )
@@ -53,27 +72,43 @@ export default function BookingsScreen() {
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false) }
 
   return (
-    <View className="flex-1 bg-surface">
-      <View className="px-4 pt-14 pb-3">
-        <Text className="text-white text-2xl font-extrabold">My Bookings</Text>
-        <Text className="text-surface-muted text-sm mt-1">{myBookings.length} total</Text>
+    <View style={styles.root}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>My Bookings</Text>
+          <Text style={styles.sub}>{myBookings.length} total bookings</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => router.push('/customer/book')}
+          activeOpacity={0.85}
+        >
+          <LinearGradient colors={['#2563EB','#1D4ED8']} start={{ x:0,y:0 }} end={{ x:1,y:0 }} style={styles.newBtn}>
+            <Text style={styles.newBtnText}>+ New</Text>
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
 
       {isLoading && !refreshing ? (
-        <ActivityIndicator color="#f97316" className="mt-10" />
+        <ActivityIndicator color="#2563EB" style={{ marginTop:40 }} />
       ) : (
         <FlatList
           data={myBookings}
           keyExtractor={b => String(b.id)}
-          renderItem={({ item }) => <BookingItem item={item} />}
-          contentContainerClassName="px-4 pt-1 pb-6"
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f97316" />}
+          renderItem={({ item }) => <BookingCard item={item} />}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563EB" />}
           ListEmptyComponent={
-            <View className="items-center pt-20">
-              <Text className="text-5xl mb-3">📋</Text>
-              <Text className="text-white font-semibold text-base">No bookings yet</Text>
-              <TouchableOpacity onPress={() => router.push('/customer')} className="bg-brand-500 rounded-xl px-6 py-3 mt-4">
-                <Text className="text-white font-bold">Browse Services</Text>
+            <View style={styles.empty}>
+              <View style={styles.emptyIconWrap}>
+                <Text style={{ fontSize:40 }}>📋</Text>
+              </View>
+              <Text style={styles.emptyTitle}>No bookings yet</Text>
+              <Text style={styles.emptySub}>Book your first service today</Text>
+              <TouchableOpacity onPress={() => router.push('/customer')} activeOpacity={0.85}>
+                <LinearGradient colors={['#2563EB','#1D4ED8']} style={styles.emptyBtn}>
+                  <Text style={styles.emptyBtnText}>Browse Services</Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           }
@@ -82,3 +117,37 @@ export default function BookingsScreen() {
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  root:   { flex:1, backgroundColor:'#F8FAFC' },
+  header: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingHorizontal:16, paddingTop:56, paddingBottom:16 },
+  title:  { color:'#0F172A', fontSize:26, fontWeight:'800' },
+  sub:    { color:'#64748B', fontSize:13, marginTop:2 },
+  newBtn: { paddingHorizontal:18, paddingVertical:10, borderRadius:14 },
+  newBtnText: { color:'#fff', fontWeight:'700', fontSize:14 },
+
+  list: { paddingHorizontal:16, paddingBottom:24 },
+  card: { backgroundColor:'#fff', borderRadius:18, marginBottom:12, shadowColor:'#000', shadowOffset:{width:0,height:2}, shadowOpacity:0.06, shadowRadius:8, elevation:3, overflow:'hidden' },
+  cardBar:   { height:4 },
+  cardBody:  { flexDirection:'row', padding:14, gap:10 },
+  cardLeft:  { flex:1 },
+  cardService:{ color:'#0F172A', fontSize:15, fontWeight:'700', marginBottom:3 },
+  cardDesc:  { color:'#64748B', fontSize:12, marginBottom:5 },
+  cardDate:  { color:'#94A3B8', fontSize:11 },
+  payBadge:  { backgroundColor:'#FEF3C7', borderRadius:8, paddingHorizontal:8, paddingVertical:3, alignSelf:'flex-start', marginTop:6 },
+  payBadgeText:{ color:'#92400E', fontSize:11, fontWeight:'600' },
+
+  cardRight:   { alignItems:'flex-end', justifyContent:'space-between' },
+  statusBadge: { flexDirection:'row', alignItems:'center', gap:4, paddingHorizontal:8, paddingVertical:4, borderRadius:20 },
+  statusDot:   { width:6, height:6, borderRadius:3 },
+  statusText:  { fontSize:10, fontWeight:'600' },
+  price:       { color:'#059669', fontWeight:'700', fontSize:15 },
+  arrow:       { color:'#CBD5E1', fontSize:20 },
+
+  empty:       { alignItems:'center', paddingTop:60 },
+  emptyIconWrap:{ width:80, height:80, backgroundColor:'#EFF6FF', borderRadius:24, alignItems:'center', justifyContent:'center', marginBottom:16 },
+  emptyTitle:  { color:'#0F172A', fontSize:18, fontWeight:'700' },
+  emptySub:    { color:'#64748B', fontSize:13, marginTop:4, marginBottom:20 },
+  emptyBtn:    { paddingHorizontal:28, paddingVertical:13, borderRadius:14 },
+  emptyBtnText:{ color:'#fff', fontWeight:'700', fontSize:14 },
+})

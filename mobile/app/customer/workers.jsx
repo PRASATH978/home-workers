@@ -1,53 +1,68 @@
+import React, { useEffect, useState } from 'react'
 import {
   View, Text, FlatList, TouchableOpacity,
-  TextInput, ActivityIndicator, Linking,
+  TextInput, ActivityIndicator, Linking, StyleSheet,
 } from 'react-native'
-import { useEffect, useState } from 'react'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useDispatch, useSelector } from 'react-redux'
 import { router, useLocalSearchParams } from 'expo-router'
 import { fetchNearbyWorkers, fetchServices } from '../../src/store/slices'
 
 function WorkerCard({ worker }) {
   return (
-    <View className={`bg-surface-card border rounded-2xl p-4 mb-3 ${worker.is_featured ? 'border-brand-500' : 'border-surface-border'}`}>
+    <View style={[styles.card, worker.is_featured && styles.cardFeatured]}>
       {worker.is_featured && (
-        <View className="self-start bg-brand-500/15 border border-brand-500/40 rounded-full px-3 py-1 mb-3">
-          <Text className="text-brand-400 text-xs font-semibold">👑 Featured</Text>
-        </View>
+        <LinearGradient
+          colors={['#2563EB', '#1D4ED8']}
+          start={{ x:0, y:0 }} end={{ x:1, y:0 }}
+          style={styles.featuredBadge}
+        >
+          <Text style={styles.featuredText}>👑 Featured Worker</Text>
+        </LinearGradient>
       )}
-      <View className="flex-row gap-3">
-        <View className="w-14 h-14 rounded-xl bg-brand-500/15 border border-brand-500/30 items-center justify-center">
-          <Text className="text-brand-400 text-xl font-bold">{worker.name?.[0]?.toUpperCase()}</Text>
-        </View>
-        <View className="flex-1">
-          <View className="flex-row items-center gap-2 flex-wrap">
-            <Text className="text-white font-bold text-base">{worker.name}</Text>
-            <Text className={`text-xs font-semibold ${worker.is_available ? 'text-emerald-400' : 'text-surface-muted'}`}>
-              {worker.is_available ? '● Online' : 'Offline'}
-            </Text>
+
+      <View style={styles.cardBody}>
+        {/* Avatar */}
+        <LinearGradient colors={['#2563EB', '#1D4ED8']} style={styles.avatar}>
+          <Text style={styles.avatarText}>{worker.name?.[0]?.toUpperCase()}</Text>
+        </LinearGradient>
+
+        <View style={styles.cardInfo}>
+          <View style={styles.nameRow}>
+            <Text style={styles.workerName}>{worker.name}</Text>
+            <View style={[styles.onlineBadge, { backgroundColor: worker.is_available ? '#D1FAE5' : '#F1F5F9' }]}>
+              <View style={[styles.onlineDot, { backgroundColor: worker.is_available ? '#10B981' : '#CBD5E1' }]} />
+              <Text style={[styles.onlineText, { color: worker.is_available ? '#065F46' : '#64748B' }]}>
+                {worker.is_available ? 'Available' : 'Offline'}
+              </Text>
+            </View>
           </View>
-          <Text className="text-slate-400 text-xs mt-1">
-            ⭐ {worker.avg_rating?.toFixed(1) || 'New'} ({worker.rating_count} reviews)
-          </Text>
-          <Text className="text-surface-muted text-xs mt-1">
-            💼 {worker.total_jobs} jobs{worker.city ? ` · 📍 ${worker.city}` : ''}
-            {worker.distance_km && worker.distance_km < 999 ? ` · ${worker.distance_km.toFixed(1)} km` : ''}
-          </Text>
-          <Text className="text-brand-400 text-xs mt-1">{worker.service_names?.join(', ')}</Text>
+          <Text style={styles.services} numberOfLines={1}>{worker.service_names?.join(' · ')}</Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.meta}>⭐ {worker.avg_rating?.toFixed(1) || 'New'}</Text>
+            <Text style={styles.metaDot}>·</Text>
+            <Text style={styles.meta}>💼 {worker.total_jobs} jobs</Text>
+            {worker.city && <><Text style={styles.metaDot}>·</Text><Text style={styles.meta}>📍 {worker.city}</Text></>}
+          </View>
         </View>
       </View>
-      <View className="flex-row gap-2.5 mt-4">
+
+      <View style={styles.actions}>
         <TouchableOpacity
-          className="flex-1 bg-brand-500 rounded-xl py-2.5 items-center"
+          style={styles.bookBtn}
           onPress={() => router.push({ pathname: '/customer/book', params: { workerId: worker.id } })}
+          activeOpacity={0.85}
         >
-          <Text className="text-white font-bold text-sm">Book Now</Text>
+          <LinearGradient colors={['#2563EB', '#1D4ED8']} start={{ x:0,y:0 }} end={{ x:1,y:0 }} style={styles.bookBtnGrad}>
+            <Text style={styles.bookBtnText}>Book Now</Text>
+          </LinearGradient>
         </TouchableOpacity>
         <TouchableOpacity
-          className="flex-1 bg-surface-card border border-surface-border rounded-xl py-2.5 items-center"
+          style={styles.callBtn}
           onPress={() => Linking.openURL(`tel:${worker.phone}`)}
+          activeOpacity={0.8}
         >
-          <Text className="text-white font-semibold text-sm">📞 Call</Text>
+          <Text style={styles.callBtnText}>📞 Call</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -56,70 +71,78 @@ function WorkerCard({ worker }) {
 
 export default function WorkersScreen() {
   const dispatch = useDispatch()
-  const params = useLocalSearchParams()
+  const params   = useLocalSearchParams()
   const { nearby: workers, isLoading } = useSelector(s => s.workers)
   const { items: services } = useSelector(s => s.services)
   const user = useSelector(s => s.auth.user)
-  const [selectedService, setSelectedService] = useState(params.service || '')
-  const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState(params.service || '')
+  const [search,   setSearch]   = useState('')
 
   useEffect(() => { dispatch(fetchServices()) }, [])
   useEffect(() => {
-    dispatch(fetchNearbyWorkers({ service: selectedService || undefined, lat: user?.latitude, lng: user?.longitude }))
-  }, [selectedService])
+    dispatch(fetchNearbyWorkers({ service: selected || undefined, lat: user?.latitude, lng: user?.longitude }))
+  }, [selected])
 
-  const filtered = workers.filter(w => !search || w.name.toLowerCase().includes(search.toLowerCase()))
+  const filtered = workers.filter(w => !search || w.name?.toLowerCase().includes(search.toLowerCase()))
 
   return (
-    <View className="flex-1 bg-surface">
-      <View className="px-4 pt-14 pb-3">
-        <Text className="text-white text-2xl font-extrabold">Find Workers</Text>
-        <Text className="text-surface-muted text-sm mt-1">{filtered.length} available near you</Text>
+    <View style={styles.root}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Find Workers</Text>
+        <Text style={styles.sub}>{filtered.length} verified professionals</Text>
       </View>
 
       {/* Search */}
-      <View className="px-4 mb-2">
+      <View style={styles.searchWrap}>
+        <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
-          className="bg-surface-card border border-surface-border rounded-xl px-4 py-3 text-white text-sm"
+          style={styles.searchInput}
           placeholder="Search by name…"
-          placeholderTextColor="#64748b"
+          placeholderTextColor="#94A3B8"
           value={search}
           onChangeText={setSearch}
         />
       </View>
 
-      {/* Service filter chips */}
+      {/* Chips */}
       <FlatList
         horizontal
-        data={[{ slug: '', name: 'All' }, ...services]}
+        data={[{ slug:'', name:'All' }, ...services]}
         keyExtractor={i => i.slug}
         showsHorizontalScrollIndicator={false}
-        contentContainerClassName="px-4 gap-2 pb-2"
+        contentContainerStyle={styles.chips}
         renderItem={({ item }) => (
           <TouchableOpacity
-            onPress={() => setSelectedService(item.slug)}
-            className={`px-4 py-1.5 rounded-full border ${selectedService === item.slug ? 'bg-brand-500 border-brand-500' : 'bg-surface-card border-surface-border'}`}
+            onPress={() => setSelected(item.slug)}
+            activeOpacity={0.8}
           >
-            <Text className={`text-sm font-medium ${selectedService === item.slug ? 'text-white' : 'text-surface-muted'}`}>
-              {item.name}
-            </Text>
+            {selected === item.slug ? (
+              <LinearGradient colors={['#2563EB','#1D4ED8']} start={{ x:0,y:0 }} end={{ x:1,y:0 }} style={styles.chipActive}>
+                <Text style={styles.chipActiveText}>{item.name}</Text>
+              </LinearGradient>
+            ) : (
+              <View style={styles.chip}>
+                <Text style={styles.chipText}>{item.name}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         )}
       />
 
       {isLoading ? (
-        <ActivityIndicator color="#f97316" className="mt-10" />
+        <ActivityIndicator color="#2563EB" style={{ marginTop: 40 }} />
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={w => String(w.id)}
           renderItem={({ item }) => <WorkerCard worker={item} />}
-          contentContainerClassName="px-4 pt-2 pb-6"
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <View className="items-center pt-16">
-              <Text className="text-4xl mb-3">🔍</Text>
-              <Text className="text-white font-semibold text-base">No workers found</Text>
-              <Text className="text-surface-muted text-sm mt-1">Try a different service</Text>
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>🔍</Text>
+              <Text style={styles.emptyTitle}>No workers found</Text>
+              <Text style={styles.emptySub}>Try a different service category</Text>
             </View>
           }
         />
@@ -127,3 +150,52 @@ export default function WorkersScreen() {
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  root:   { flex:1, backgroundColor:'#F8FAFC' },
+  header: { paddingHorizontal:16, paddingTop:56, paddingBottom:12 },
+  title:  { color:'#0F172A', fontSize:26, fontWeight:'800' },
+  sub:    { color:'#64748B', fontSize:13, marginTop:2 },
+
+  searchWrap:  { flexDirection:'row', alignItems:'center', backgroundColor:'#fff', marginHorizontal:16, borderRadius:14, paddingHorizontal:14, marginBottom:12, height:50, borderWidth:1, borderColor:'#E5E7EB', shadowColor:'#000', shadowOffset:{width:0,height:1}, shadowOpacity:0.05, shadowRadius:4, elevation:2 },
+  searchIcon:  { fontSize:16, marginRight:8 },
+  searchInput: { flex:1, color:'#0F172A', fontSize:14 },
+
+  chips:       { paddingHorizontal:16, gap:8, paddingBottom:12 },
+  chipActive:  { paddingHorizontal:16, paddingVertical:8, borderRadius:20 },
+  chip:        { paddingHorizontal:16, paddingVertical:8, backgroundColor:'#fff', borderRadius:20, borderWidth:1, borderColor:'#E5E7EB' },
+  chipText:    { color:'#64748B', fontSize:13, fontWeight:'500' },
+  chipActiveText:{ color:'#fff', fontSize:13, fontWeight:'600' },
+
+  list: { paddingHorizontal:16, paddingBottom:24 },
+  card: { backgroundColor:'#fff', borderRadius:20, marginBottom:14, shadowColor:'#000', shadowOffset:{width:0,height:2}, shadowOpacity:0.06, shadowRadius:8, elevation:3, overflow:'hidden' },
+  cardFeatured: { borderWidth:2, borderColor:'#2563EB' },
+  featuredBadge:{ paddingHorizontal:14, paddingVertical:7, alignSelf:'flex-start' },
+  featuredText: { color:'#fff', fontSize:11, fontWeight:'700' },
+
+  cardBody:   { flexDirection:'row', padding:16, gap:14 },
+  avatar:     { width:54, height:54, borderRadius:18, alignItems:'center', justifyContent:'center', flexShrink:0 },
+  avatarText: { color:'#fff', fontSize:22, fontWeight:'800' },
+  cardInfo:   { flex:1 },
+  nameRow:    { flexDirection:'row', alignItems:'center', gap:8, marginBottom:4, flexWrap:'wrap' },
+  workerName: { color:'#0F172A', fontSize:15, fontWeight:'700' },
+  onlineBadge:{ flexDirection:'row', alignItems:'center', gap:4, paddingHorizontal:8, paddingVertical:3, borderRadius:20 },
+  onlineDot:  { width:6, height:6, borderRadius:3 },
+  onlineText: { fontSize:11, fontWeight:'600' },
+  services:   { color:'#64748B', fontSize:12, marginBottom:6 },
+  metaRow:    { flexDirection:'row', alignItems:'center', gap:4 },
+  meta:       { color:'#94A3B8', fontSize:11 },
+  metaDot:    { color:'#CBD5E1', fontSize:11 },
+
+  actions:    { flexDirection:'row', gap:10, paddingHorizontal:16, paddingBottom:16 },
+  bookBtn:    { flex:1, borderRadius:14, overflow:'hidden' },
+  bookBtnGrad:{ paddingVertical:11, alignItems:'center' },
+  bookBtnText:{ color:'#fff', fontWeight:'700', fontSize:13 },
+  callBtn:    { flex:1, backgroundColor:'#F8FAFC', borderRadius:14, paddingVertical:11, alignItems:'center', borderWidth:1, borderColor:'#E5E7EB' },
+  callBtnText:{ color:'#374151', fontSize:13, fontWeight:'600' },
+
+  empty:     { alignItems:'center', paddingTop:60 },
+  emptyIcon: { fontSize:48, marginBottom:12 },
+  emptyTitle:{ color:'#0F172A', fontSize:16, fontWeight:'700' },
+  emptySub:  { color:'#64748B', fontSize:13, marginTop:4 },
+})

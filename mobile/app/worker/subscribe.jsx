@@ -1,12 +1,30 @@
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native'
+import {
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+} from 'react-native'
 import { useSelector } from 'react-redux'
+import { LinearGradient } from 'expo-linear-gradient'
 import api from '../../src/utils/api'
 import Toast from 'react-native-toast-message'
 
 const PLANS = [
-  { key:'basic',    name:'Basic',    price:0,   icon:'🔧', features:['5 leads/month','Basic listing','Reviews'] },
-  { key:'pro',      name:'Pro',      price:199, icon:'⚡', features:['Unlimited leads','Priority search','WhatsApp alerts','Reviews'] },
-  { key:'featured', name:'Featured', price:499, icon:'👑', features:['Everything in Pro','Top of search','Featured badge','Priority support'], highlight:true },
+  {
+    key:'basic', name:'Basic', price:0, icon:'🔧',
+    colors:['#121212','#0d0d0d'],
+    features:['5 leads/month','Basic listing','Reviews'],
+  },
+  {
+    key:'pro', name:'Pro', price:199, icon:'⚡',
+    colors:['#1a0533','#2d0a4e'],
+    border:'#833ab4',
+    features:['Unlimited leads','Priority search','WhatsApp alerts','Reviews'],
+  },
+  {
+    key:'featured', name:'Featured', price:499, icon:'👑',
+    colors:['#1a0533','#2d1050'],
+    border:'#c13584',
+    highlight:true,
+    features:['Everything in Pro','Top of search','Featured badge','Priority support'],
+  },
 ]
 
 export default function WorkerSubscribeScreen() {
@@ -16,79 +34,153 @@ export default function WorkerSubscribeScreen() {
     if (plan.key === 'basic') return
     try {
       const { data } = await api.post('/payments/subscription/', { plan: plan.key })
-      Toast.show({ type: 'info', text1: 'Payment initiated', text2: `Order: ${data.order_id}`, visibilityTime: 4000 })
+      Toast.show({ type:'info', text1:'Payment initiated', text2:`Order: ${data.order_id}`, visibilityTime:4000 })
     } catch {
-      Toast.show({ type: 'error', text1: 'Failed to initiate payment' })
+      Toast.show({ type:'error', text1:'Failed to initiate payment' })
     }
   }
 
   return (
-    <ScrollView className="flex-1 bg-surface" contentContainerClassName="px-4 pt-14 pb-10" showsVerticalScrollIndicator={false}>
-      <Text className="text-white text-2xl font-extrabold mb-1">Upgrade Plan</Text>
-      <Text className="text-surface-muted text-sm mb-5">More leads = more earnings</Text>
-
-      {profile && (
-        <View className="bg-surface-card border border-surface-border rounded-2xl py-3 px-4 items-center mb-5">
-          <Text className="text-surface-muted text-sm">
-            Current: <Text className="text-brand-400 font-bold">{profile.subscription_plan?.toUpperCase()}</Text>
-          </Text>
-        </View>
-      )}
-
-      {PLANS.map(plan => (
-        <View key={plan.key} className={`rounded-2xl p-5 mb-4 border ${plan.highlight ? 'bg-brand-500/5 border-brand-500' : 'bg-surface-card border-surface-border'}`}>
-          {plan.highlight && (
-            <View className="self-start bg-brand-500/15 border border-brand-500/40 rounded-full px-3 py-1 mb-3">
-              <Text className="text-brand-400 text-xs font-semibold">👑 Most Popular</Text>
-            </View>
-          )}
-          <View className="flex-row items-center gap-3 mb-4">
-            <Text className="text-3xl">{plan.icon}</Text>
-            <View>
-              <Text className="text-white text-lg font-extrabold">{plan.name}</Text>
-              <Text className="text-brand-400 font-semibold text-sm mt-0.5">
-                {plan.price === 0 ? 'Free' : `₹${plan.price}/month`}
-              </Text>
-            </View>
-          </View>
-
-          {plan.features.map(f => (
-            <View key={f} className="flex-row gap-2 items-start mb-2">
-              <Text className="text-emerald-400 font-bold text-sm">✓</Text>
-              <Text className="text-slate-400 text-sm flex-1">{f}</Text>
-            </View>
-          ))}
-
-          <TouchableOpacity
-            className={`rounded-xl py-3.5 items-center mt-4 ${
-              plan.highlight ? 'bg-brand-500' :
-              profile?.subscription_plan === plan.key || plan.key === 'basic'
-                ? 'bg-surface border border-surface-border opacity-50'
-                : 'bg-surface-card border border-surface-border'
-            }`}
-            onPress={() => handleSubscribe(plan)}
-            disabled={profile?.subscription_plan === plan.key || plan.key === 'basic'}
-          >
-            <Text className={`font-bold text-sm ${plan.highlight ? 'text-white' : 'text-white'}`}>
-              {profile?.subscription_plan === plan.key ? '✅ Active Plan' :
-               plan.key === 'basic' ? 'Free Plan' : `Get ${plan.name}`}
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header */}
+      <LinearGradient colors={['#1a0533','#000']} style={styles.header}>
+        <View style={styles.headerCircle} />
+        <Text style={styles.headerTitle}>Upgrade Plan</Text>
+        <Text style={styles.headerSub}>More leads = more earnings 💰</Text>
+        {profile && (
+          <View style={styles.currentPlan}>
+            <Text style={styles.currentPlanText}>
+              Current: <Text style={{ color:'#c13584', fontWeight:'700' }}>{profile.subscription_plan?.toUpperCase()}</Text>
             </Text>
-          </TouchableOpacity>
+          </View>
+        )}
+      </LinearGradient>
+
+      {/* Plans */}
+      {PLANS.map(plan => (
+        <View key={plan.key} style={{ borderRadius:24, overflow:'hidden', marginBottom:14 }}>
+          <LinearGradient
+            colors={plan.colors}
+            style={[styles.planCard, plan.border && { borderColor: plan.border + '50', borderWidth:1.5 }]}
+          >
+            {plan.highlight && (
+              <LinearGradient
+                colors={['#833ab4','#c13584','#fd1d1d']}
+                start={{ x:0,y:0 }} end={{ x:1,y:0 }}
+                style={styles.popularBadge}
+              >
+                <Text style={styles.popularText}>✨ Most Popular</Text>
+              </LinearGradient>
+            )}
+
+            <View style={styles.planTop}>
+              <LinearGradient
+                colors={plan.highlight ? ['#833ab4','#c13584'] : plan.key === 'pro' ? ['#405de6','#833ab4'] : ['#363636','#262626']}
+                style={styles.planIcon}
+              >
+                <Text style={{ fontSize:24 }}>{plan.icon}</Text>
+              </LinearGradient>
+              <View>
+                <Text style={styles.planName}>{plan.name}</Text>
+                <Text style={styles.planPrice}>
+                  {plan.price === 0 ? 'Free Forever' : `₹${plan.price}/month`}
+                </Text>
+              </View>
+            </View>
+
+            {plan.features.map(f => (
+              <View key={f} style={styles.featureRow}>
+                <LinearGradient colors={['#833ab4','#c13584']} style={styles.featureDot}>
+                  <Text style={{ color:'#fff', fontSize:9, fontWeight:'800' }}>✓</Text>
+                </LinearGradient>
+                <Text style={styles.featureText}>{f}</Text>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              onPress={() => handleSubscribe(plan)}
+              disabled={profile?.subscription_plan === plan.key || plan.key === 'basic'}
+              style={{ borderRadius:16, overflow:'hidden', marginTop:16 }}
+              activeOpacity={0.85}
+            >
+              {profile?.subscription_plan === plan.key ? (
+                <View style={styles.activePlanBtn}>
+                  <Text style={styles.activePlanText}>✅ Current Plan</Text>
+                </View>
+              ) : plan.key === 'basic' ? (
+                <View style={[styles.activePlanBtn, { opacity:0.5 }]}>
+                  <Text style={styles.activePlanText}>Free Plan</Text>
+                </View>
+              ) : (
+                <LinearGradient
+                  colors={plan.highlight ? ['#833ab4','#c13584','#fd1d1d'] : ['#405de6','#833ab4']}
+                  start={{ x:0,y:0 }} end={{ x:1,y:0 }}
+                  style={styles.subscribeBtn}
+                >
+                  <Text style={styles.subscribeBtnText}>Get {plan.name} — ₹{plan.price}/mo</Text>
+                </LinearGradient>
+              )}
+            </TouchableOpacity>
+          </LinearGradient>
         </View>
       ))}
 
-      {/* Earnings info */}
-      <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
-        <Text className="text-white font-bold text-base mb-4">💰 How Earnings Work</Text>
-        <View className="flex-row gap-2">
-          {[['10%','Platform fee\n(Basic)','text-brand-400'],['₹450','You keep on\n₹500 job','text-emerald-400'],['₹0','Fee on Pro\nplan','text-brand-400']].map(([val, label, color]) => (
-            <View key={val} className="flex-1 bg-surface rounded-xl py-3 px-2 items-center">
-              <Text className={`${color} text-lg font-extrabold`}>{val}</Text>
-              <Text className="text-surface-muted text-xs mt-1 text-center">{label}</Text>
+      {/* Earnings breakdown */}
+      <LinearGradient colors={['#1a0533','#0d0d0d']} style={styles.earningsCard}>
+        <Text style={styles.earningsTitle}>💰 How Earnings Work</Text>
+        <View style={styles.earningsRow}>
+          {[
+            { val:'10%',  label:'Platform fee\n(Basic)',    color:'#c13584' },
+            { val:'₹450', label:'You keep on\n₹500 job',   color:'#00ba7c' },
+            { val:'₹0',   label:'No fee on\nPro plan',     color:'#833ab4' },
+          ].map(e => (
+            <View key={e.val} style={styles.earningItem}>
+              <Text style={[styles.earningVal, { color: e.color }]}>{e.val}</Text>
+              <Text style={styles.earningLabel}>{e.label}</Text>
             </View>
           ))}
         </View>
-      </View>
+      </LinearGradient>
     </ScrollView>
   )
 }
+
+const styles = StyleSheet.create({
+  root:    { flex:1, backgroundColor:'#000' },
+  content: { paddingHorizontal:16, paddingBottom:40 },
+
+  header:       { marginHorizontal:-16, paddingHorizontal:24, paddingTop:56, paddingBottom:28, alignItems:'center', marginBottom:20, overflow:'hidden' },
+  headerCircle: { position:'absolute', top:-50, right:-50, width:180, height:180, borderRadius:90, backgroundColor:'#833ab4', opacity:0.2 },
+  headerTitle:  { color:'#fff', fontSize:28, fontWeight:'800', marginBottom:6 },
+  headerSub:    { color:'#a8a8a8', fontSize:14 },
+  currentPlan:  { backgroundColor:'rgba(193,53,132,0.1)', borderRadius:20, paddingHorizontal:16, paddingVertical:6, marginTop:12, borderWidth:1, borderColor:'#c13584' + '30' },
+  currentPlanText:{ color:'#a8a8a8', fontSize:13 },
+
+  planCard:     { padding:20, borderRadius:24, borderWidth:1, borderColor:'#262626' },
+  popularBadge: { alignSelf:'flex-start', paddingHorizontal:12, paddingVertical:5, borderRadius:20, marginBottom:14 },
+  popularText:  { color:'#fff', fontSize:11, fontWeight:'700' },
+  planTop:      { flexDirection:'row', alignItems:'center', gap:14, marginBottom:16 },
+  planIcon:     { width:52, height:52, borderRadius:16, alignItems:'center', justifyContent:'center' },
+  planName:     { color:'#fff', fontSize:20, fontWeight:'800', marginBottom:3 },
+  planPrice:    { color:'#c13584', fontSize:14, fontWeight:'600' },
+
+  featureRow:  { flexDirection:'row', alignItems:'center', gap:10, marginBottom:10 },
+  featureDot:  { width:18, height:18, borderRadius:9, alignItems:'center', justifyContent:'center' },
+  featureText: { color:'#a8a8a8', fontSize:13, flex:1 },
+
+  activePlanBtn:   { backgroundColor:'#1a1a1a', paddingVertical:13, alignItems:'center', borderRadius:16, borderWidth:1, borderColor:'#262626' },
+  activePlanText:  { color:'#737373', fontWeight:'600', fontSize:13 },
+  subscribeBtn:    { paddingVertical:14, alignItems:'center', borderRadius:16 },
+  subscribeBtnText:{ color:'#fff', fontWeight:'700', fontSize:14 },
+
+  earningsCard: { borderRadius:22, padding:20, marginTop:4, borderWidth:1, borderColor:'#262626' },
+  earningsTitle:{ color:'#fff', fontSize:15, fontWeight:'700', marginBottom:16 },
+  earningsRow:  { flexDirection:'row', gap:10 },
+  earningItem:  { flex:1, backgroundColor:'#0d0d0d', borderRadius:16, padding:14, alignItems:'center', borderWidth:1, borderColor:'#1a1a1a' },
+  earningVal:   { fontSize:20, fontWeight:'800', marginBottom:6 },
+  earningLabel: { color:'#737373', fontSize:11, textAlign:'center', lineHeight:16 },
+})

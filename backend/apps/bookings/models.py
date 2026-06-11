@@ -17,7 +17,6 @@ class Booking(models.Model):
         PAID = 'paid', 'Paid'
         REFUNDED = 'refunded', 'Refunded'
 
-    # Parties
     customer = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
         related_name='customer_bookings'
@@ -28,32 +27,29 @@ class Booking(models.Model):
     )
     service = models.ForeignKey('services.ServiceCategory', on_delete=models.PROTECT)
 
-    # Request details
     problem_description = models.TextField()
     address = models.TextField()
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    scheduled_at = models.DateTimeField(null=True, blank=True, help_text='Preferred time')
-    photos = models.JSONField(default=list, blank=True, help_text='List of Cloudinary URLs')
+    scheduled_at = models.DateTimeField(null=True, blank=True)
+    photos = models.JSONField(default=list, blank=True)
 
-    # Status
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
-    payment_status = models.CharField(max_length=20, choices=PaymentStatus.choices, default=PaymentStatus.UNPAID)
+    payment_status = models.CharField(
+        max_length=20, choices=PaymentStatus.choices, default=PaymentStatus.UNPAID
+    )
 
-    # Pricing
-    quoted_price = models.PositiveIntegerField(null=True, blank=True, help_text='Price in ₹')
+    quoted_price = models.PositiveIntegerField(null=True, blank=True)
     final_price = models.PositiveIntegerField(null=True, blank=True)
     commission_amount = models.PositiveIntegerField(null=True, blank=True)
 
-    # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
+    # Use default=timezone.now (not auto_now_add) so seeds can set custom dates
+    created_at = models.DateTimeField(default=timezone.now)
     accepted_at = models.DateTimeField(null=True, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
     cancel_reason = models.TextField(blank=True)
-
-    # OTP for job completion verification
     completion_otp = models.CharField(max_length=6, blank=True)
 
     class Meta:
@@ -61,10 +57,9 @@ class Booking(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Booking #{self.id} - {self.service.name} ({self.status})"
+        return f"Booking #{self.id} — {self.service.name} ({self.status})"
 
     def calculate_commission(self):
-        from django.conf import settings
         if self.final_price:
             pct = getattr(settings, 'RAZORPAY_COMMISSION_PERCENT', 10)
             self.commission_amount = int(self.final_price * pct / 100)
@@ -87,7 +82,6 @@ class Booking(models.Model):
         self.status = self.Status.COMPLETED
         self.completed_at = timezone.now()
         self.save(update_fields=['status', 'completed_at', 'final_price', 'commission_amount'])
-        # Update worker stats
         if self.worker:
             self.worker.total_jobs += 1
             self.worker.save(update_fields=['total_jobs'])
@@ -104,17 +98,20 @@ class BookingReview(models.Model):
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     worker = models.ForeignKey('workers.WorkerProfile', on_delete=models.CASCADE)
     rating = models.PositiveSmallIntegerField(
-        choices=[(1,'1'), (2,'2'), (3,'3'), (4,'4'), (5,'5')]
+        choices=[(i, str(i)) for i in range(1, 6)]
     )
     comment = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         db_table = 'booking_reviews'
 
     def save(self, *args, **kwargs):
+        is_new = self.pk is None
         super().save(*args, **kwargs)
-        self.worker.update_rating(self.rating)
+        # Only update worker rating on first save, not updates
+        if is_new:
+            self.worker.update_rating(self.rating)
 
     def __str__(self):
         return f"Review for Booking #{self.booking_id}: {self.rating}★"

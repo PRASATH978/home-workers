@@ -1,44 +1,51 @@
 {
   "expo": {
-    "name": "LocalService",
-    "slug": "localservice-connect",
+    "name": "LocalService Connect",
+    "slug": "localservice",
     "version": "1.0.0",
-    "scheme": "localservice",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0f172a"
+      "backgroundColor": "#000000"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.royal360.localservice",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We use your location to find workers near you."
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#f97316"
+        "backgroundColor": "#000000"
       },
       "package": "com.royal360.localservice",
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "ACCESS_COARSE_LOCATION"
       ]
-    },
-    "ios": {
-      "bundleIdentifier": "com.royal360.localservice",
-      "supportsTablet": false
     },
     "plugins": [
       "expo-router",
-      "expo-location",
-      ["expo-image-picker", { "photosPermission": "Allow LocalService to access your photos." }],
-      ["expo-notifications", { "icon": "./assets/notification-icon.png", "color": "#f97316" }]
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow LocalService to use your location to find workers near you."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow LocalService to access your photos for ID proof upload."
+        }
+      ],
+      "expo-asset"
     ],
-    "extra": {
-      "eas": { "projectId": "your-eas-project-id" }
+    "scheme": "localservice",
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }

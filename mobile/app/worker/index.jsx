@@ -1,7 +1,11 @@
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native'
+import {
+  View, Text, ScrollView, TouchableOpacity,
+  RefreshControl, StyleSheet,
+} from 'react-native'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { router } from 'expo-router'
+import { LinearGradient } from 'expo-linear-gradient'
 import { fetchWorkerProfile, toggleAvailability, fetchWorkerJobs } from '../../src/store/slices'
 import api from '../../src/utils/api'
 import Toast from 'react-native-toast-message'
@@ -13,7 +17,12 @@ export default function WorkerDashboardScreen() {
   const user = useSelector(s => s.auth.user)
   const [refreshing, setRefreshing] = useState(false)
 
-  const load = () => Promise.all([dispatch(fetchWorkerProfile()), dispatch(fetchWorkerJobs('available'))])
+  const load = () => Promise.all([
+    dispatch(fetchWorkerProfile()),
+    dispatch(fetchWorkerJobs('available')),
+    dispatch(fetchWorkerJobs('mine')),
+  ])
+
   useEffect(() => { load() }, [])
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false) }
 
@@ -21,98 +30,126 @@ export default function WorkerDashboardScreen() {
     try {
       await api.post('/workers/profile/toggle-availability/')
       dispatch(toggleAvailability())
-      Toast.show({ type: 'success', text1: profile?.is_available ? 'You are now offline' : 'You are now online!' })
+      Toast.show({ type:'success', text1: profile?.is_available ? 'You are now offline' : 'You are now online! 🟢' })
     } catch {
-      Toast.show({ type: 'error', text1: 'Failed to update status' })
+      Toast.show({ type:'error', text1:'Failed to update' })
     }
   }
 
   const stats = [
-    { icon:'💼', label:'Total Jobs', value: profile?.total_jobs ?? 0 },
-    { icon:'⭐', label:'Rating',     value: `${profile?.avg_rating ?? 0} ★` },
-    { icon:'💬', label:'Reviews',    value: profile?.rating_count ?? 0 },
-    { icon:'👑', label:'Plan',       value: (profile?.subscription_plan ?? 'basic').toUpperCase() },
+    { icon:'💼', label:'Total Jobs',  value: profile?.total_jobs ?? 0,              color:'#c13584' },
+    { icon:'⭐', label:'Rating',      value: `${profile?.avg_rating ?? 0}`,          color:'#ffad08' },
+    { icon:'💬', label:'Reviews',     value: profile?.rating_count ?? 0,             color:'#0095f6' },
+    { icon:'👑', label:'Plan',        value: (profile?.subscription_plan ?? 'BASIC').toUpperCase(), color:'#833ab4' },
   ]
 
   return (
     <ScrollView
-      className="flex-1 bg-surface"
-      contentContainerClassName="px-4 pt-14 pb-8"
+      style={styles.root}
+      contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f97316" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#c13584" />}
     >
-      {/* Header */}
-      <View className="flex-row justify-between items-start mb-4">
-        <View>
-          <Text className="text-white text-2xl font-extrabold">Hi, {user?.name?.split(' ')[0]} 👋</Text>
-          <Text className={`text-sm mt-1 ${profile?.verification_status === 'verified' ? 'text-emerald-400' : 'text-yellow-400'}`}>
-            {profile?.verification_status === 'verified' ? '✅ Verified Worker' : `⚠️ ${profile?.verification_status || 'pending'}`}
-          </Text>
+      {/* Hero header */}
+      <LinearGradient colors={['#1a0533','#2d0a4e','#000']} style={styles.hero}>
+        <View style={styles.heroCircle1} />
+        <View style={styles.heroCircle2} />
+
+        <View style={styles.heroTop}>
+          <View>
+            <Text style={styles.greeting}>Hi, {user?.name?.split(' ')[0]} 👋</Text>
+            <Text style={styles.heroSub}>
+              {profile?.verification_status === 'verified'
+                ? '✅ Verified Worker'
+                : `⚠️ ${profile?.verification_status || 'Pending'}`}
+            </Text>
+          </View>
+
+          {/* Online toggle */}
+          <TouchableOpacity
+            onPress={handleToggle}
+            style={{ borderRadius:20, overflow:'hidden' }}
+            activeOpacity={0.8}
+          >
+            {profile?.is_available ? (
+              <LinearGradient
+                colors={['#00ba7c','#00c896']}
+                start={{ x:0,y:0 }} end={{ x:1,y:0 }}
+                style={styles.toggleBtn}
+              >
+                <Text style={styles.toggleText}>🟢 Online</Text>
+              </LinearGradient>
+            ) : (
+              <View style={styles.toggleBtnOff}>
+                <Text style={styles.toggleTextOff}>⚫ Offline</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          className={`flex-row items-center gap-1.5 px-4 py-2 rounded-full border ${profile?.is_available ? 'bg-emerald-500/10 border-emerald-500/40' : 'bg-surface-card border-surface-border'}`}
-          onPress={handleToggle}
-        >
-          <Text className={`font-semibold text-sm ${profile?.is_available ? 'text-emerald-400' : 'text-surface-muted'}`}>
-            {profile?.is_available ? '🟢 Online' : '⚫ Offline'}
-          </Text>
-        </TouchableOpacity>
-      </View>
 
-      {/* Verification alert */}
-      {profile?.verification_status !== 'verified' && (
-        <TouchableOpacity
-          className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4 mb-4"
-          onPress={() => router.push('/worker/profile')}
-        >
-          <Text className="text-yellow-400 text-sm">
-            ⚠️ {profile?.verification_status === 'rejected'
-              ? 'Verification rejected. Tap to update your ID.'
-              : 'Verification pending. Complete your profile →'}
-          </Text>
-        </TouchableOpacity>
-      )}
+        {/* Verification alert */}
+        {profile?.verification_status !== 'verified' && (
+          <TouchableOpacity
+            style={styles.verifyAlert}
+            onPress={() => router.push('/worker/profile')}
+          >
+            <Text style={styles.verifyAlertText}>
+              {profile?.verification_status === 'rejected'
+                ? '⚠️ Verification rejected — tap to re-submit ID'
+                : '⚠️ Complete your profile to get verified →'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </LinearGradient>
 
-      {/* Stats grid */}
-      <View className="flex-row flex-wrap gap-2.5 mb-6">
+      {/* Stats */}
+      <View style={styles.statsGrid}>
         {stats.map(s => (
-          <View key={s.label} className="bg-surface-card border border-surface-border rounded-2xl p-4 items-center" style={{ width: '47%' }}>
-            <Text className="text-xl mb-1">{s.icon}</Text>
-            <Text className="text-white text-xl font-extrabold">{s.value}</Text>
-            <Text className="text-surface-muted text-xs mt-0.5">{s.label}</Text>
+          <View key={s.label} style={styles.statCard}>
+            <Text style={styles.statIcon}>{s.icon}</Text>
+            <Text style={[styles.statVal, { color: s.color }]}>{s.value}</Text>
+            <Text style={styles.statLabel}>{s.label}</Text>
           </View>
         ))}
       </View>
 
       {/* Available jobs */}
-      <View className="flex-row justify-between items-center mb-3">
-        <Text className="text-white text-lg font-bold">
-          Available Jobs <Text className="text-brand-400">({availableJobs.length})</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>
+          Available Jobs{' '}
+          <Text style={{ color:'#c13584' }}>({availableJobs.length})</Text>
         </Text>
         <TouchableOpacity onPress={() => router.push('/worker/jobs')}>
-          <Text className="text-brand-400 text-sm">See all ›</Text>
+          <Text style={styles.seeAll}>See all →</Text>
         </TouchableOpacity>
       </View>
 
       {availableJobs.length === 0 ? (
-        <View className="bg-surface-card border border-surface-border rounded-2xl p-7 items-center">
-          <Text className="text-4xl mb-2">📭</Text>
-          <Text className="text-white font-semibold text-sm">No jobs right now</Text>
-          <Text className="text-surface-muted text-xs mt-1">Stay online to receive notifications</Text>
-        </View>
+        <LinearGradient colors={['#121212','#0d0d0d']} style={styles.emptyJobs}>
+          <Text style={{ fontSize:40, marginBottom:8 }}>📭</Text>
+          <Text style={styles.emptyTitle}>No jobs right now</Text>
+          <Text style={styles.emptySub}>Stay online to get notified</Text>
+        </LinearGradient>
       ) : (
         availableJobs.slice(0, 3).map(job => (
           <TouchableOpacity
             key={job.id}
-            className="bg-surface-card border border-surface-border rounded-2xl p-4 mb-2.5 flex-row items-center gap-3"
+            style={styles.jobCard}
             onPress={() => router.push('/worker/jobs')}
+            activeOpacity={0.75}
           >
-            <View className="flex-1">
-              <Text className="text-white font-bold text-sm">{job.service?.name}</Text>
-              <Text className="text-surface-muted text-xs mt-0.5" numberOfLines={1}>{job.problem_description}</Text>
-              <Text className="text-surface-muted text-xs mt-0.5" numberOfLines={1}>📍 {job.address}</Text>
+            <LinearGradient
+              colors={['#833ab4','#c13584']}
+              style={styles.jobDot}
+            >
+              <Text style={{ color:'#fff', fontSize:11, fontWeight:'700' }}>NEW</Text>
+            </LinearGradient>
+            <View style={{ flex:1 }}>
+              <Text style={styles.jobService}>{job.service?.name}</Text>
+              <Text style={styles.jobDesc} numberOfLines={1}>{job.problem_description}</Text>
+              <Text style={styles.jobAddr} numberOfLines={1}>📍 {job.address}</Text>
             </View>
-            <Text className="text-surface-muted text-lg">›</Text>
+            <Text style={{ color:'#c13584', fontSize:20 }}>›</Text>
           </TouchableOpacity>
         ))
       )}
@@ -120,13 +157,72 @@ export default function WorkerDashboardScreen() {
       {/* Upgrade CTA */}
       {profile?.subscription_plan === 'basic' && (
         <TouchableOpacity
-          className="bg-brand-500/10 border border-brand-500/30 rounded-2xl p-5 items-center mt-4"
           onPress={() => router.push('/worker/subscribe')}
+          style={{ borderRadius:22, overflow:'hidden', marginTop:8 }}
+          activeOpacity={0.85}
         >
-          <Text className="text-brand-400 font-bold text-base">👑 Upgrade to Pro – ₹199/month</Text>
-          <Text className="text-surface-muted text-xs mt-1">Unlimited leads · No commission</Text>
+          <LinearGradient
+            colors={['#1a0533','#2d0a4e']}
+            style={styles.upgradeCta}
+          >
+            <LinearGradient
+              colors={['#833ab4','#c13584','#fd1d1d']}
+              start={{ x:0,y:0 }} end={{ x:1,y:0 }}
+              style={styles.upgradeIcon}
+            >
+              <Text style={{ fontSize:20 }}>👑</Text>
+            </LinearGradient>
+            <View style={{ flex:1 }}>
+              <Text style={styles.upgradeTitle}>Upgrade to Pro</Text>
+              <Text style={styles.upgradeSub}>Unlimited leads · ₹199/month</Text>
+            </View>
+            <Text style={{ color:'#c13584', fontSize:20 }}>›</Text>
+          </LinearGradient>
         </TouchableOpacity>
       )}
     </ScrollView>
   )
 }
+
+const styles = StyleSheet.create({
+  root:    { flex:1, backgroundColor:'#000' },
+  content: { paddingBottom:32 },
+
+  hero:        { paddingTop:56, paddingBottom:24, paddingHorizontal:20, overflow:'hidden' },
+  heroCircle1: { position:'absolute', top:-50, right:-50, width:180, height:180, borderRadius:90, backgroundColor:'#833ab4', opacity:0.15 },
+  heroCircle2: { position:'absolute', bottom:-40, left:-40, width:160, height:160, borderRadius:80, backgroundColor:'#fd1d1d', opacity:0.08 },
+  heroTop:     { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:12 },
+  greeting:    { color:'#fff', fontSize:24, fontWeight:'800', marginBottom:3 },
+  heroSub:     { color:'#a8a8a8', fontSize:12 },
+  toggleBtn:   { paddingHorizontal:16, paddingVertical:8, borderRadius:20 },
+  toggleText:  { color:'#fff', fontWeight:'700', fontSize:13 },
+  toggleBtnOff:{ paddingHorizontal:16, paddingVertical:8, borderRadius:20, backgroundColor:'#1a1a1a', borderWidth:1, borderColor:'#262626' },
+  toggleTextOff:{ color:'#737373', fontWeight:'600', fontSize:13 },
+  verifyAlert: { backgroundColor:'rgba(255,173,8,0.1)', borderRadius:14, padding:12, borderWidth:1, borderColor:'rgba(255,173,8,0.3)' },
+  verifyAlertText:{ color:'#ffad08', fontSize:12, fontWeight:'500' },
+
+  statsGrid: { flexDirection:'row', flexWrap:'wrap', padding:16, gap:10 },
+  statCard:  { width:'47%', backgroundColor:'#121212', borderRadius:20, padding:16, alignItems:'center', borderWidth:1, borderColor:'#262626' },
+  statIcon:  { fontSize:24, marginBottom:6 },
+  statVal:   { fontSize:24, fontWeight:'800', marginBottom:3 },
+  statLabel: { color:'#737373', fontSize:11 },
+
+  sectionHeader: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingHorizontal:16, marginBottom:10 },
+  sectionTitle:  { color:'#fff', fontSize:17, fontWeight:'700' },
+  seeAll:        { color:'#c13584', fontSize:13, fontWeight:'600' },
+
+  emptyJobs:  { marginHorizontal:16, borderRadius:22, padding:28, alignItems:'center', borderWidth:1, borderColor:'#262626' },
+  emptyTitle: { color:'#fff', fontSize:14, fontWeight:'600', marginBottom:4 },
+  emptySub:   { color:'#737373', fontSize:12 },
+
+  jobCard:    { flexDirection:'row', alignItems:'center', gap:12, marginHorizontal:16, marginBottom:10, backgroundColor:'#121212', borderRadius:18, padding:16, borderWidth:1, borderColor:'#262626' },
+  jobDot:     { paddingHorizontal:8, paddingVertical:4, borderRadius:8 },
+  jobService: { color:'#fff', fontSize:14, fontWeight:'700', marginBottom:2 },
+  jobDesc:    { color:'#737373', fontSize:12, marginBottom:2 },
+  jobAddr:    { color:'#363636', fontSize:11 },
+
+  upgradeCta:  { marginHorizontal:16, padding:18, borderRadius:22, flexDirection:'row', alignItems:'center', gap:14, borderWidth:1, borderColor:'#833ab4' + '40' },
+  upgradeIcon: { width:44, height:44, borderRadius:14, alignItems:'center', justifyContent:'center' },
+  upgradeTitle:{ color:'#fff', fontSize:15, fontWeight:'700' },
+  upgradeSub:  { color:'#a8a8a8', fontSize:12, marginTop:2 },
+})

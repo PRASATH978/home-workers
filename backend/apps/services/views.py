@@ -4,14 +4,21 @@ from .models import ServiceCategory
 from .serializers import ServiceCategorySerializer
 
 
-class ServiceCategoryListView(generics.ListAPIView):
-    queryset = ServiceCategory.objects.filter(is_active=True)
-    serializer_class = ServiceCategorySerializer
-    permission_classes = [permissions.AllowAny]
+class IsAdminOrReadOnly(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return request.user and request.user.is_staff
 
 
-class ServiceCategoryDetailView(generics.RetrieveAPIView):
-    queryset = ServiceCategory.objects.filter(is_active=True)
+class ServiceCategoryListView(generics.ListCreateAPIView):
+    queryset = ServiceCategory.objects.filter(is_active=True).order_by('sort_order', 'name')
     serializer_class = ServiceCategorySerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class ServiceCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = ServiceCategory.objects.all()
+    serializer_class = ServiceCategorySerializer
+    permission_classes = [IsAdminOrReadOnly]
     lookup_field = 'slug'

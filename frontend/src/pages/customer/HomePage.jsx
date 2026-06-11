@@ -1,19 +1,26 @@
 import { useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { fetchServices } from '../../store/slices/servicesSlice'
-import { MapPin, Star, Search, ChevronRight } from 'lucide-react'
+import { Search, ChevronRight } from 'lucide-react'
 
 const SERVICE_ICONS = {
-  wrench: '🔧', bolt: '⚡', hammer: '🔨', paint: '🎨',
-  snowflake: '❄️', droplet: '💧', broom: '🧹',
-  car: '🚗', brick: '🧱', fire: '🔥', leaf: '🌿',
+  wrench:'🔧', bolt:'⚡', hammer:'🔨', paint:'🎨',
+  snowflake:'❄️', droplet:'💧', broom:'🧹',
+  car:'🚗', brick:'🧱', fire:'🔥', leaf:'🌿',
 }
 
 const STATS = [
   { label: 'Verified Workers', value: '500+' },
-  { label: 'Services Done', value: '12,000+' },
-  { label: 'Cities Covered', value: '8' },
+  { label: 'Services Done',    value: '12,000+' },
+  { label: 'Cities Covered',   value: '8' },
+]
+
+const HOW = [
+  { emoji:'📱', step:'1', title:'Select Service', desc:'Choose from 11 categories' },
+  { emoji:'👷', step:'2', title:'See Workers',    desc:'Verified pros near you' },
+  { emoji:'📅', step:'3', title:'Book',           desc:'Describe your problem' },
+  { emoji:'⭐', step:'4', title:'Rate',           desc:'After job is done' },
 ]
 
 export default function CustomerHome() {
@@ -21,8 +28,9 @@ export default function CustomerHome() {
   const { items: services, isLoading } = useSelector(s => s.services)
   const user = useSelector(s => s.auth.user)
 
+  // Always fetch on mount — ensures fresh data after navigation
   useEffect(() => {
-    if (!services.length) dispatch(fetchServices())
+    dispatch(fetchServices())
   }, [])
 
   return (
@@ -43,8 +51,7 @@ export default function CustomerHome() {
             <Search size={16} /> Find Workers <ChevronRight size={16} />
           </Link>
         </div>
-        {/* BG decoration */}
-        <div className="absolute right-0 top-0 w-64 h-full opacity-10">
+        <div className="absolute right-0 top-0 w-64 h-full opacity-10 pointer-events-none">
           <div className="absolute top-4 right-4 text-9xl">🔧</div>
           <div className="absolute bottom-4 right-16 text-7xl">⚡</div>
         </div>
@@ -72,7 +79,7 @@ export default function CustomerHome() {
         {isLoading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {[...Array(8)].map((_, i) => (
-              <div key={i} className="card h-28 animate-pulse bg-surface-card" />
+              <div key={i} className="card h-28 animate-pulse" />
             ))}
           </div>
         ) : (
@@ -99,13 +106,8 @@ export default function CustomerHome() {
       {/* How It Works */}
       <div className="card">
         <h2 className="font-display text-xl font-bold text-white mb-6">How it works</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {[
-            { emoji: '📱', step: '1', title: 'Select Service', desc: 'Choose what you need from 11 categories' },
-            { emoji: '👷', step: '2', title: 'See Workers', desc: 'View verified pros near your location' },
-            { emoji: '📅', step: '3', title: 'Book', desc: 'Describe your problem and confirm booking' },
-            { emoji: '⭐', step: '4', title: 'Rate', desc: 'Job done — rate your experience' },
-          ].map(item => (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {HOW.map(item => (
             <div key={item.step} className="flex flex-col items-center text-center gap-2">
               <div className="relative">
                 <span className="text-3xl">{item.emoji}</span>

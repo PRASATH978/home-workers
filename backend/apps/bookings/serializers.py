@@ -15,9 +15,9 @@ class BookingCreateSerializer(serializers.ModelSerializer):
 
 
 class BookingSerializer(serializers.ModelSerializer):
-    service = ServiceCategorySerializer(read_only=True)
+    service  = ServiceCategorySerializer(read_only=True)
     customer = UserSerializer(read_only=True)
-    worker = WorkerListSerializer(read_only=True)
+    worker   = WorkerListSerializer(read_only=True)
     has_review = serializers.SerializerMethodField()
 
     class Meta:
@@ -28,7 +28,9 @@ class BookingSerializer(serializers.ModelSerializer):
             'latitude', 'longitude', 'scheduled_at', 'photos',
             'status', 'payment_status',
             'quoted_price', 'final_price', 'commission_amount',
-            'created_at', 'accepted_at', 'completed_at',
+            'created_at', 'accepted_at', 'started_at', 'completed_at',
+            'cancel_reason',
+            'completion_otp',   # shown to customer so they can share with worker
             'has_review',
         ]
 
@@ -37,8 +39,8 @@ class BookingSerializer(serializers.ModelSerializer):
 
 
 class BookingStatusUpdateSerializer(serializers.Serializer):
-    status = serializers.ChoiceField(choices=Booking.Status.choices)
-    final_price = serializers.IntegerField(required=False, min_value=0)
+    status       = serializers.ChoiceField(choices=Booking.Status.choices)
+    final_price  = serializers.IntegerField(required=False, min_value=0)
     cancel_reason = serializers.CharField(required=False, allow_blank=True)
 
 

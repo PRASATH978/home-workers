@@ -3,11 +3,11 @@ import { useDispatch, useSelector } from 'react-redux'
 import { fetchWorkerJobs, workerJobAction } from '../../store/slices/bookingsSlice'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
-import { MapPin, Phone, CheckCircle } from 'lucide-react'
+import { MapPin, Phone, CheckCircle, RefreshCw } from 'lucide-react'
 
 const TABS = [
   { key: 'available', label: 'Available' },
-  { key: 'mine', label: 'My Jobs' },
+  { key: 'mine',      label: 'My Jobs' },
 ]
 
 export default function WorkerJobsPage() {
@@ -17,8 +17,17 @@ export default function WorkerJobsPage() {
   const [otpInput, setOtpInput] = useState({})
   const [actionLoading, setActionLoading] = useState(null)
 
+  const load = (t = tab) => dispatch(fetchWorkerJobs(t))
+
+  // Always fetch fresh on mount
   useEffect(() => {
-    dispatch(fetchWorkerJobs(tab))
+    load('available')
+    load('mine')
+  }, [])
+
+  // Re-fetch when tab changes
+  useEffect(() => {
+    load(tab)
   }, [tab])
 
   const jobs = tab === 'available' ? availableJobs : myJobs
@@ -29,7 +38,8 @@ export default function WorkerJobsPage() {
     setActionLoading(null)
     if (res.meta.requestStatus === 'fulfilled') {
       toast.success(`Job ${action}ed successfully`)
-      dispatch(fetchWorkerJobs(tab))
+      load('available')
+      load('mine')
     } else {
       toast.error(res.payload?.error || `Failed to ${action} job`)
     }
@@ -37,9 +47,14 @@ export default function WorkerJobsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold text-white">Jobs</h1>
-        <p className="text-surface-muted text-sm mt-1">Manage your service requests</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-white">Jobs</h1>
+          <p className="text-surface-muted text-sm mt-1">Manage your service requests</p>
+        </div>
+        <button onClick={() => { load('available'); load('mine') }} className="btn-secondary py-2.5 px-3">
+          <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
+        </button>
       </div>
 
       {/* Tabs */}
@@ -48,12 +63,12 @@ export default function WorkerJobsPage() {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
               tab === t.key ? 'bg-brand-500 text-white' : 'text-slate-400 hover:text-white'
             }`}
           >
             {t.label}
-            <span className="ml-2 opacity-70">
+            <span className="opacity-70">
               ({t.key === 'available' ? availableJobs.length : myJobs.length})
             </span>
           </button>
@@ -70,28 +85,29 @@ export default function WorkerJobsPage() {
           <p className="text-white font-medium">
             {tab === 'available' ? 'No available jobs right now' : 'No active jobs'}
           </p>
+          <p className="text-surface-muted text-sm mt-1">
+            {tab === 'available' ? 'Stay online to receive notifications' : 'Accept a job from the Available tab'}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
           {jobs.map(job => (
             <div key={job.id} className="card space-y-4">
-              {/* Job header */}
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-white">{job.service?.name}</p>
                   <p className="text-sm text-surface-muted mt-0.5">{job.problem_description}</p>
                 </div>
                 <span className={`badge flex-shrink-0 ${
-                  job.status === 'pending' ? 'badge-orange' :
-                  job.status === 'accepted' ? 'badge-blue' :
-                  job.status === 'in_progress' ? 'badge-blue' :
-                  job.status === 'completed' ? 'badge-green' : 'badge-gray'
+                  job.status === 'pending'     ? 'badge-orange' :
+                  job.status === 'accepted'    ? 'badge-blue'   :
+                  job.status === 'in_progress' ? 'badge-blue'   :
+                  job.status === 'completed'   ? 'badge-green'  : 'badge-gray'
                 }`}>
                   {job.status.replace('_', ' ')}
                 </span>
               </div>
 
-              {/* Details */}
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-surface-muted">
                 <span className="flex items-center gap-1"><MapPin size={11} /> {job.address}</span>
                 {job.customer?.phone && (

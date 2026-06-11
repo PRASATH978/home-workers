@@ -1,4 +1,5 @@
 import random
+from django.db import models
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -8,14 +9,15 @@ from django.shortcuts import get_object_or_404
 from .models import Booking, BookingReview
 from .serializers import (
     BookingCreateSerializer, BookingSerializer,
-    BookingStatusUpdateSerializer, BookingReviewSerializer,
+    BookingReviewSerializer,
 )
 from apps.workers.models import WorkerProfile
 from apps.notifications.services import NotificationService
 
 
 class CustomerBookingListCreateView(generics.ListCreateAPIView):
-    """Customer: list own bookings, create new booking"""
+    """Customer: list own bookings or create a new one"""
+    pagination_class = None  # return plain list, no pagination wrapper
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -23,13 +25,15 @@ class CustomerBookingListCreateView(generics.ListCreateAPIView):
         return BookingSerializer
 
     def get_queryset(self):
-        return Booking.objects.filter(customer=self.request.user).select_related(
-            'service', 'worker__user'
+        return (
+            Booking.objects
+            .filter(customer=self.request.user)
+            .select_related('service', 'worker__user')
+            .order_by('-created_at')
         )
 
     def perform_create(self, serializer):
         booking = serializer.save(customer=self.request.user)
-        # Notify nearby workers via WhatsApp/SMS
         self._notify_workers(booking)
 
     def _notify_workers(self, booking):
@@ -38,14 +42,13 @@ class CustomerBookingListCreateView(generics.ListCreateAPIView):
             is_available=True,
             services=booking.service,
         ).select_related('user')[:20]
-
         for worker in workers:
             NotificationService.send_whatsapp(
                 worker.user.phone,
-                f"🔔 New {booking.service.name} job near you!\n"
+                f"🔔 New {booking.service.name} job!\n"
                 f"📍 {booking.address}\n"
                 f"📝 {booking.problem_description[:100]}\n"
-                f"Open app to accept: localservice://booking/{booking.id}"
+                f"Open app to accept."
             )
 
 
@@ -53,45 +56,57 @@ class CustomerBookingDetailView(generics.RetrieveDestroyAPIView):
     serializer_class = BookingSerializer
 
     def get_queryset(self):
-        return Booking.objects.filter(customer=self.request.user)
+        return Booking.objects.filter(customer=self.request.user).select_related(
+            'service', 'worker__user'
+        )
 
     def destroy(self, request, *args, **kwargs):
         booking = self.get_object()
-        if booking.status not in [Booking.Status.PENDING]:
+        if booking.status != Booking.Status.PENDING:
             return Response(
                 {'error': 'Only pending bookings can be cancelled.'},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
         booking.cancel(reason='Cancelled by customer')
-        NotificationService.send_sms(
-            booking.customer.phone,
-            f"Your booking #{booking.id} has been cancelled."
-        )
         return Response({'message': 'Booking cancelled.'})
 
 
 class WorkerJobListView(generics.ListAPIView):
-    """Worker: see available jobs + their own accepted/active jobs"""
+    """Worker: available jobs or their own jobs"""
     serializer_class = BookingSerializer
+    pagination_class = None
 
     def get_queryset(self):
+        # Return empty queryset if user has no worker profile
+        try:
+            profile = WorkerProfile.objects.get(user=self.request.user)
+        except WorkerProfile.DoesNotExist:
+            return Booking.objects.none()
+
         filter_type = self.request.query_params.get('filter', 'available')
-        profile = get_object_or_404(WorkerProfile, user=self.request.user)
 
         if filter_type == 'available':
-            return Booking.objects.filter(
-                status=Booking.Status.PENDING,
-                service__in=profile.services.all(),
-            ).select_related('service', 'customer')
+            return (
+                Booking.objects
+                .filter(
+                    status=Booking.Status.PENDING,
+                    service__in=profile.services.all(),
+                )
+                .select_related('service', 'customer')
+                .order_by('-created_at')
+            )
         elif filter_type == 'mine':
-            return Booking.objects.filter(
-                worker=profile
-            ).select_related('service', 'customer')
+            return (
+                Booking.objects
+                .filter(worker=profile)
+                .select_related('service', 'customer')
+                .order_by('-created_at')
+            )
         return Booking.objects.none()
 
 
 class WorkerJobActionView(APIView):
-    """Worker accepts/starts/completes a job"""
+    """Worker accepts / starts / completes a job"""
 
     def post(self, request, pk):
         booking = get_object_or_404(Booking, pk=pk)
@@ -105,22 +120,23 @@ class WorkerJobActionView(APIView):
             NotificationService.send_whatsapp(
                 booking.customer.phone,
                 f"✅ {profile.user.name} accepted your {booking.service.name} request!\n"
-                f"📞 Contact: {profile.user.phone}\n"
-                f"They will arrive shortly."
+                f"📞 {profile.user.phone}"
             )
-            return Response({'message': 'Job accepted.', 'booking': BookingSerializer(booking).data})
+            return Response({
+                'message': 'Job accepted.',
+                'booking': BookingSerializer(booking).data,
+            })
 
         elif action == 'start':
             if booking.status != Booking.Status.ACCEPTED or booking.worker != profile:
                 return Response({'error': 'Cannot start this job.'}, status=400)
             booking.start()
-            # Send OTP to customer for verification
             otp = str(random.randint(1000, 9999))
             booking.completion_otp = otp
             booking.save(update_fields=['completion_otp'])
             NotificationService.send_sms(
                 booking.customer.phone,
-                f"Your {booking.service.name} job has started. Share OTP {otp} with worker when done."
+                f"Your {booking.service.name} job has started. Share OTP {otp} with the worker when done."
             )
             return Response({'message': 'Job started.'})
 
@@ -128,46 +144,48 @@ class WorkerJobActionView(APIView):
             otp = request.data.get('otp')
             if booking.worker != profile:
                 return Response({'error': 'Not your job.'}, status=403)
-            if booking.completion_otp and booking.completion_otp != otp:
+            if booking.completion_otp and booking.completion_otp != str(otp):
                 return Response({'error': 'Invalid completion OTP.'}, status=400)
             final_price = request.data.get('final_price')
-            booking.complete(final_price=final_price)
+            booking.complete(final_price=int(final_price) if final_price else None)
             NotificationService.send_whatsapp(
                 booking.customer.phone,
                 f"✅ Your {booking.service.name} job is completed!\n"
                 f"Amount: ₹{booking.final_price or 'TBD'}\n"
-                f"Please rate your experience in the app."
+                f"Please rate your experience."
             )
             return Response({'message': 'Job completed.'})
 
-        return Response({'error': 'Invalid action.'}, status=400)
+        return Response({'error': 'Invalid action. Use: accept, start, complete'}, status=400)
 
 
 class BookingReviewView(generics.CreateAPIView):
-    """Customer submits review after completion"""
     serializer_class = BookingReviewSerializer
 
     def perform_create(self, serializer):
-        booking = get_object_or_404(Booking, pk=self.kwargs['pk'], customer=self.request.user)
+        booking = get_object_or_404(
+            Booking, pk=self.kwargs['pk'], customer=self.request.user
+        )
         if booking.status != Booking.Status.COMPLETED:
             raise PermissionDenied('Can only review completed bookings.')
         if hasattr(booking, 'review'):
             raise PermissionDenied('Already reviewed.')
-        serializer.save(booking=booking, customer=self.request.user, worker=booking.worker)
+        serializer.save(
+            booking=booking,
+            customer=self.request.user,
+            worker=booking.worker,
+        )
 
 
 class BookingDetailView(generics.RetrieveAPIView):
-    """Detail view accessible by both customer and worker"""
+    """Accessible by both customer and assigned worker"""
     serializer_class = BookingSerializer
 
     def get_queryset(self):
         user = self.request.user
-        if hasattr(user, 'worker_profile'):
+        worker_profile = getattr(user, 'worker_profile', None)
+        if worker_profile:
             return Booking.objects.filter(
-                models.Q(customer=user) | models.Q(worker=user.worker_profile)
-            )
-        return Booking.objects.filter(customer=user)
-
-
-# Fix missing import
-from django.db import models
+                models.Q(customer=user) | models.Q(worker=worker_profile)
+            ).select_related('service', 'worker__user')
+        return Booking.objects.filter(customer=user).select_related('service', 'worker__user')

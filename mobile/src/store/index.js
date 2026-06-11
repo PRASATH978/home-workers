@@ -4,9 +4,11 @@ import { servicesReducer, workersReducer, bookingsReducer } from './slices'
 
 export const store = configureStore({
   reducer: {
-    auth: authReducer,
+    auth:     authReducer,
     services: servicesReducer,
-    workers: workersReducer,
+    workers:  workersReducer,
     bookings: bookingsReducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({ serializableCheck: false }),
 })

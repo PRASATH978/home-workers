@@ -6,6 +6,8 @@ import {
   LogOut, Menu, X, Wrench, Star
 } from 'lucide-react'
 import { useState } from 'react'
+import GlobalPoller from './GlobalPoller'
+import LiveIndicator from './LiveIndicator'
 
 export default function Layout() {
   const dispatch = useDispatch()
@@ -18,15 +20,15 @@ export default function Layout() {
 
   const navLinks = isWorker
     ? [
-        { to: '/worker', icon: <Home size={18} />, label: 'Dashboard' },
-        { to: '/worker/jobs', icon: <Briefcase size={18} />, label: 'Jobs' },
-        { to: '/worker/profile', icon: <User size={18} />, label: 'Profile' },
-        { to: '/worker/subscribe', icon: <Star size={18} />, label: 'Upgrade' },
+        { to: '/worker',           icon: <Home size={18} />,        label: 'Dashboard' },
+        { to: '/worker/jobs',      icon: <Briefcase size={18} />,   label: 'Jobs' },
+        { to: '/worker/profile',   icon: <User size={18} />,        label: 'Profile' },
+        { to: '/worker/subscribe', icon: <Star size={18} />,        label: 'Upgrade' },
       ]
     : [
-        { to: '/', icon: <Home size={18} />, label: 'Home' },
+        { to: '/',         icon: <Home size={18} />,        label: 'Home' },
         { to: '/bookings', icon: <CalendarDays size={18} />, label: 'Bookings' },
-        { to: '/workers', icon: <Briefcase size={18} />, label: 'Workers' },
+        { to: '/workers',  icon: <Briefcase size={18} />,   label: 'Workers' },
       ]
 
   const handleLogout = () => {
@@ -36,6 +38,9 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Silent background poller — renders nothing visible */}
+      <GlobalPoller />
+
       {/* Navbar */}
       <nav className="bg-surface-card border-b border-surface-border sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -69,17 +74,28 @@ export default function Layout() {
 
           {/* Right side */}
           <div className="flex items-center gap-3">
+            {/* Live indicator */}
+            <LiveIndicator />
+
             <div className="hidden md:flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-brand-500/20 border border-brand-500/30 flex items-center justify-center text-brand-400 text-sm font-semibold">
                 {user?.name?.[0]?.toUpperCase()}
               </div>
               <span className="text-sm text-slate-300">{user?.name}</span>
             </div>
-            <button onClick={handleLogout} className="btn-secondary py-2 px-3 flex items-center gap-2 text-sm">
+
+            <button
+              onClick={handleLogout}
+              className="btn-secondary py-2 px-3 flex items-center gap-2 text-sm"
+            >
               <LogOut size={15} />
               <span className="hidden md:inline">Logout</span>
             </button>
-            <button className="md:hidden text-slate-400 hover:text-white" onClick={() => setMenuOpen(!menuOpen)}>
+
+            <button
+              className="md:hidden text-slate-400 hover:text-white"
+              onClick={() => setMenuOpen(!menuOpen)}
+            >
               {menuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>

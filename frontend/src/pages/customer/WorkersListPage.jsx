@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { fetchNearbyWorkers } from '../../store/slices/workersSlice'
 import { fetchServices } from '../../store/slices/servicesSlice'
 import WorkerCard from '../../components/customer/WorkerCard'
-import { Search, Filter } from 'lucide-react'
+import { Search, Filter, RefreshCw } from 'lucide-react'
 
 export default function WorkersListPage() {
   const dispatch = useDispatch()
@@ -13,27 +13,45 @@ export default function WorkersListPage() {
   const [selectedService, setSelectedService] = useState('')
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    if (!services.length) dispatch(fetchServices())
-  }, [])
-
-  useEffect(() => {
+  const loadWorkers = (service = selectedService) => {
     dispatch(fetchNearbyWorkers({
-      service: selectedService || undefined,
+      service: service || undefined,
       lat: user?.latitude,
       lng: user?.longitude,
     }))
+  }
+
+  // Always fetch fresh on mount
+  useEffect(() => {
+    dispatch(fetchServices())
+    loadWorkers()
+  }, [])
+
+  // Re-fetch when service filter changes
+  useEffect(() => {
+    loadWorkers(selectedService)
   }, [selectedService])
 
   const filtered = workers.filter(w =>
-    !search || w.name.toLowerCase().includes(search.toLowerCase())
+    !search || w.name?.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold text-white">Find Workers</h1>
-        <p className="text-surface-muted text-sm mt-1">Browse all verified professionals near you</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-white">Find Workers</h1>
+          <p className="text-surface-muted text-sm mt-1">
+            {filtered.length} verified professionals
+          </p>
+        </div>
+        <button
+          onClick={() => loadWorkers()}
+          className="btn-secondary py-2.5 px-3"
+          title="Refresh"
+        >
+          <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
+        </button>
       </div>
 
       {/* Filters */}
